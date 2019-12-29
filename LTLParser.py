@@ -282,102 +282,101 @@ class Transition(object):
 
 class Analysis(object):
     def __init__(self):
-        self.literals = []  # 字母表
         self.states = []  # 状态集合
         self.dnf_list = []  # dnf公式集合
-        self.transitions = []  # 一个transition的列表
-        self.accept_states = []  # 可接受状态
+        self.small_dnf_set = []  # 子公式 dnf集合
+
+    def is_dnf(self, tree: Node):
+        if tree.token.value == "&" and tree.right.token.value == "X":
+            return True
+        else:
+            return False
 
     def to_Standard_DNF(self, tree: Node):
-        # 更改树的结构
+        # 转树的结构
         root = tree.token  # 根节点
         if root.value == "X":
-            self.dnf_x(tree)
+            return self.dnf_x(tree)
         elif root.value == "U":
-            self.dnf_u(tree)
+            return self.dnf_u(tree)
         elif root.value == "R":
-            self.dnf_r(tree)
+            return self.dnf_r(tree)
         elif root.value == "|":
-            self.dnf_v(tree)
+            return self.dnf_v(tree)
         elif root.value == "&":
-            self.dnf_and(tree)
+            return self.dnf_and(tree)
         else:  # 解析原子命题
-            self.dnf_p(tree)
+            return self.dnf_p(tree)
 
     def dnf_x(self, tree: Node):
+        self.small_dnf_set = []
         x_child = tree.right
         f = "X(" + get_tree(x_child) + ")"
         sub_f = get_tree(x_child)
         # 添加dnf
-        self.dnf_list.append("true&" + f)
+        self.small_dnf_set.append("true&" + f)
+        self.dnf_list.append(tuple((f, self.small_dnf_set)))
         # 添加状态
         if f not in self.states:
             self.states.append(f)
         if sub_f not in self.states:
             self.states.append(sub_f)
-        # 添加迁移
-        self.transitions.append(Transition(f, "true", sub_f))
-        self.to_Standard_DNF(x_child)
-        print("dnf_x:::: "+get_tree(x_child))
-        pass
+        appending = []
+        appending.append(x_child.token.value)
+        return appending
 
     def dnf_u(self, tree: Node):
-        print("dnf_u:::: "+get_tree(tree))
+        self.small_dnf_set = []
         left_child = tree.left
         right_child = tree.right
         f = get_tree(tree)
         left_f = get_tree(left_child)
         right_f = get_tree(right_child)
         # 新增dnf
-        self.dnf_list.append(left_f + "&X(" + f + ")")
-        # 添加迁移
-        self.transitions.append(Transition(f, left_f, f))  # 转移到自身
-        self.transitions.append(Transition(f, right_f, "true"))
-        self.to_Standard_DNF(left_child)
-        self.to_Standard_DNF(right_child)
-        pass
+        self.small_dnf_set.append(left_f + "&X(" + f + ")")
+        self.small_dnf_set.append(self.to_Standard_DNF(right_child))
+        self.dnf_list.append(tuple((f, self.small_dnf_set)))
+        appending = []
+        appending.append(right_f)
+        if not self.is_dnf(right_child) and f not in self.states:  # phy2 如果不是dnf的话就返回要继续解析的字符
+            return appending
 
     def dnf_r(self, tree: Node):
+        return None
         pass
 
     def dnf_v(self, tree: Node):
+        self.small_dnf_set = []
         left_child = tree.left
         right_child = tree.right
         left_f = get_tree(left_child)
         right_f = get_tree(right_child)
-        print("dnf_v     :::: "+get_tree(tree))
-        print("dnf_v left:::: "+get_tree(left_child))
-        print("dnf_v right::: "+get_tree(right_child))
-
-        # 新增dnf, 其实析取函数里，并没有新增dnf，只是递归调用
-        self.to_Standard_DNF(left_child)
-        self.to_Standard_DNF(right_child)
-        # 新增迁移
-        # self.transitions.append(get_tree(tree), left_f+','+right_f,)
+        appending = []
+        self.small_dnf_set.append(self.to_Standard_DNF(left_child))
+        self.small_dnf_set.append(self.to_Standard_DNF(right_child))
+        self.dnf_list.append(tuple((get_tree(tree), self.small_dnf_set)))
         pass
 
     def dnf_and(self, tree: Node):
+        self.small_dnf_set = []
+        left_child = tree.left
+        right_child = tree.right
+        left_f = get_tree(left_child)
+        right_f = get_tree(right_child)
+        appending = []
+
+        return None
         pass
 
-    def dnf_p(self, tree: Node):
-        print("dnf_v p:::: "+get_tree(tree))
+    def dnf_p(self, tree: Node, flag=0):
         if tree.token.value != "true":
-            self.dnf_list.append(tree.token.value + "&X(true)")
-            self.literals.append(tree.token.value)
+            dnf = tree.token.value + "&X(true)"
             if "true" not in self.states:
                 self.states.append("true")
-                transition = Transition(start="true", eat="true", end="true")
-                self.transitions.append(transition)
-            else:
-                self.literals.append("true")
+        return dnf
         pass
 
     def print_dnf(self):
-        # aps = ""
-        # for ap in self.literals:
-        #     aps += (ap + " ")
-        # print('原子命题集合: ' + aps + "\n")
-
         print("DNF公式集")
         for formula in self.dnf_list:
             print(formula)
@@ -385,9 +384,6 @@ class Analysis(object):
         print("\n状态集合")
         for state in self.states:
             print(state)
-        print("\n迁移")
-        for transition in self.transitions:
-            print("迁移:" + transition.start + "--->" + transition.eat + "--->" + transition.end)
 
 
 if __name__ == "__main__":
@@ -420,8 +416,13 @@ if __name__ == "__main__":
         # 初始公式先加入到状态集合中
         if tree.token.value not in analysis.states and tree.token.value != "X":
             analysis.states.append(get_tree(tree))
-        if tree.token.type == P:
-            analysis.transitions.append(Transition(tree.token.value, tree.token.value, "true"))
-        analysis.to_Standard_DNF(tree)
+        remaining = analysis.to_Standard_DNF(tree)
+        if remaining is not None:
+            for r in remaining:
+                lexer = Lexer(r)
+                parser = Parser(lexer)
+                interpreter = Interpreter(parser)
+                tree = interpreter.interpret()
+                analysis.to_Standard_DNF(tree)
         analysis.print_dnf()
         pass
