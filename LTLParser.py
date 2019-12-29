@@ -259,12 +259,12 @@ def print_tree(tree: Node):
     return
 
 
-def get_tree(tree:Node):
+def get_tree(tree: Node):
     if tree is not None:
         left = get_tree(tree.left)
         op = tree.token.value
         right = get_tree(tree.right)
-        return left+op+right
+        return left + op + right
     else:
         return ""
 
@@ -288,7 +288,7 @@ class Analysis(object):
         self.transitions = []  # 一个transition的列表
         self.accept_states = []  # 可接受状态
 
-    def to_Standard_DNF(self,tree: Node):
+    def to_Standard_DNF(self, tree: Node):
         # 更改树的结构
         root = tree.token  # 根节点
         if root.value == "X":
@@ -306,10 +306,10 @@ class Analysis(object):
 
     def dnf_x(self, tree: Node):
         x_child = tree.right
-        f = "X("+get_tree(x_child)+")"
+        f = "X(" + get_tree(x_child) + ")"
         sub_f = get_tree(x_child)
         # 添加dnf
-        self.dnf_list.append("true&"+f)
+        self.dnf_list.append("true&" + f)
         # 添加状态
         if f not in self.states:
             self.states.append(f)
@@ -318,19 +318,22 @@ class Analysis(object):
         # 添加迁移
         self.transitions.append(Transition(f, "true", sub_f))
         self.to_Standard_DNF(x_child)
+        print("dnf_x:::: "+get_tree(x_child))
         pass
 
     def dnf_u(self, tree: Node):
+        print("dnf_u:::: "+get_tree(tree))
         left_child = tree.left
         right_child = tree.right
         f = get_tree(tree)
         left_f = get_tree(left_child)
         right_f = get_tree(right_child)
         # 新增dnf
-        self.dnf_list.append(left_f+"&X("+f+")")
+        self.dnf_list.append(left_f + "&X(" + f + ")")
         # 添加迁移
         self.transitions.append(Transition(f, left_f, f))  # 转移到自身
         self.transitions.append(Transition(f, right_f, "true"))
+        self.to_Standard_DNF(left_child)
         self.to_Standard_DNF(right_child)
         pass
 
@@ -338,12 +341,26 @@ class Analysis(object):
         pass
 
     def dnf_v(self, tree: Node):
+        left_child = tree.left
+        right_child = tree.right
+        left_f = get_tree(left_child)
+        right_f = get_tree(right_child)
+        print("dnf_v     :::: "+get_tree(tree))
+        print("dnf_v left:::: "+get_tree(left_child))
+        print("dnf_v right::: "+get_tree(right_child))
+
+        # 新增dnf, 其实析取函数里，并没有新增dnf，只是递归调用
+        self.to_Standard_DNF(left_child)
+        self.to_Standard_DNF(right_child)
+        # 新增迁移
+        # self.transitions.append(get_tree(tree), left_f+','+right_f,)
         pass
 
     def dnf_and(self, tree: Node):
         pass
 
     def dnf_p(self, tree: Node):
+        print("dnf_v p:::: "+get_tree(tree))
         if tree.token.value != "true":
             self.dnf_list.append(tree.token.value + "&X(true)")
             self.literals.append(tree.token.value)
@@ -351,15 +368,15 @@ class Analysis(object):
                 self.states.append("true")
                 transition = Transition(start="true", eat="true", end="true")
                 self.transitions.append(transition)
+            else:
                 self.literals.append("true")
-            pass
         pass
 
     def print_dnf(self):
-        aps = ""
-        for ap in self.literals:
-            aps += (ap+" ")
-        print('原子命题集合: '+aps+"\n")
+        # aps = ""
+        # for ap in self.literals:
+        #     aps += (ap + " ")
+        # print('原子命题集合: ' + aps + "\n")
 
         print("DNF公式集")
         for formula in self.dnf_list:
@@ -370,7 +387,7 @@ class Analysis(object):
             print(state)
         print("\n迁移")
         for transition in self.transitions:
-            print("迁移:"+transition.start+"--->"+transition.eat+"--->"+transition.end)
+            print("迁移:" + transition.start + "--->" + transition.eat + "--->" + transition.end)
 
 
 if __name__ == "__main__":
@@ -401,7 +418,7 @@ if __name__ == "__main__":
         print("\n")
         analysis = Analysis()
         # 初始公式先加入到状态集合中
-        if tree.token.value not in analysis.states:
+        if tree.token.value not in analysis.states and tree.token.value != "X":
             analysis.states.append(get_tree(tree))
         if tree.token.type == P:
             analysis.transitions.append(Transition(tree.token.value, tree.token.value, "true"))
